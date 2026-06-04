@@ -1,0 +1,26 @@
+spring:
+  application:
+    security:
+      jwt:
+        secret-key: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+        expiration: 86400000
+        refresh-token:
+          expiration: 604800000
+
+  datasource:
+    url: jdbc:h2:mem:clinic_test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+
+  flyway:
+    enabled: false
+
+  sql:
+    init:
+      mode: never

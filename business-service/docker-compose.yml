@@ -1,0 +1,17 @@
+services:
+    app:
+        image: maven:3.9.6-eclipse-temurin-21
+        command: mvn spring-boot:run -Dspring-boot.run.profiles=dev
+        ports:
+            - "8086:8086"
+        volumes:
+            - .:/usr/src/app # Mount the local 'volume' directory to /usr/src/app in the container
+            - ~/.m2:/root/.m2
+        working_dir: /usr/src/app
+        networks:
+            - clinic-network
+
+networks:
+    clinic-network:
+        external: true
+        driver: bridge
