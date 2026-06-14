@@ -2,6 +2,8 @@ package com.clinic.clinic.Service;
 
 import com.clinic.clinic.Entity.File.FileEntity;
 import com.clinic.clinic.Entity.Medication.*;
+import com.clinic.clinic.Entity.common.PageResponse;
+import com.clinic.clinic.Entity.common.PaginationUtil;
 import com.clinic.clinic.JpaRepo.FileJpaRepo;
 import com.clinic.clinic.Entity.File.FileMedication;
 import com.clinic.clinic.JpaRepo.MedicationJpaRepo;
@@ -10,17 +12,32 @@ import com.clinic.clinic.Entity.User.User;
 import com.clinic.clinic.JpaRepo.UserJpaRepo;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class MedicationService {
+
+    private static final Set<String> ALLOWED_SORT_FIELDS = Set.of("name", "quantity");
+    private static final String DEFAULT_SORT_FIELD = "name";
+
     private final MedicationJpaRepo medicationJpaRepo;
     private final UserJpaRepo userJpaRepo;
     private final FileJpaRepo fileJpaRepo;
+
+    @Value("${application.pagination.default-page-size:10}")
+    private int defaultPageSize;
+
+    @Value("${application.pagination.max-page-size:50}")
+    private int maxPageSize;
 
 
     public void addNewMedication(@Valid AddMedicationDto addMedicationDto) {
@@ -31,6 +48,8 @@ public class MedicationService {
                 .active(true)
                 .build();
         medicationJpaRepo.save(medicationEntity);
+        log.info("Added new medication {} with quantity {}",
+                addMedicationDto.getName(), addMedicationDto.getQuantity());
     }
 
     public void supplyMedication(SupplyMedicationDto dto) {
@@ -39,6 +58,8 @@ public class MedicationService {
 
         medication.setQuantity(medication.getQuantity() + dto.getQuantity());
         medicationJpaRepo.save(medication);
+        log.info("Supplied {} units of medication {} (new total {})",
+                dto.getQuantity(), dto.getMedicationName(), medication.getQuantity());
     }
 
 //    public void supplyMedication(SupplyMedicationDto supplyMedicationDto) {
@@ -58,8 +79,10 @@ public class MedicationService {
         if(medication.isActive()){
         medication.setActive(false);
         medication.setQuantity(0);
-        medicationJpaRepo.save(medication);}
+        medicationJpaRepo.save(medication);
+        log.info("Discontinued medication {}", discontinueMedicationDto.getName());}
         else{
+            log.warn("Medication {} is already discontinued", discontinueMedicationDto.getName());
             throw new MedicationAlreadyDiscontinued();
         }
     }
@@ -130,6 +153,18 @@ public class MedicationService {
             }else{
                 throw new NotEnoughtMedicationException(giveMedicationDto.getMedicationName());
             }
+    }
+
+    public PageResponse<MedicineResponseDto> getAllMedications(int page, int size, String sortBy, String direction) {
+        PaginationUtil.PageQuery query = PaginationUtil.resolve(
+                page, size, sortBy, direction,
+                ALLOWED_SORT_FIELDS, DEFAULT_SORT_FIELD,
+                defaultPageSize, maxPageSize);
+        Page<MedicationEntity> entityPage = medicationJpaRepo.findAll(query.pageable());
+        List<MedicineResponseDto> content = entityPage.getContent().stream()
+                .map(MedicineResponseDto::new)
+                .toList();
+        return PageResponse.from(entityPage, content, query.sortBy(), query.direction());
     }
 
     public List<MedicineResponseDto> getAllActiveMedicine() {

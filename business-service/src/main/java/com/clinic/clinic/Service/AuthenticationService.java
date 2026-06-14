@@ -11,6 +11,7 @@ import com.clinic.clinic.security.JwtService;
 import jakarta.mail.MessagingException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -25,6 +26,7 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AuthenticationService {
 
 
@@ -46,7 +48,7 @@ public class AuthenticationService {
 
     public void register(RegistrationRequestDto request) throws MessagingException {
         if(request.getSpecialization() == null) {
-            System.out.println("user");
+            log.info("Registering new USER account for {}", request.getEmail());
             var userRole = roleJpaRepo.findByName("USER")
                     .orElseThrow(() -> new IllegalArgumentException("Role not found"));
             var user = User.builder()
@@ -61,7 +63,7 @@ public class AuthenticationService {
             userJpaRepo.save(user);
             sendValidationEmail(user);
         } else {
-            System.out.println("doctor");
+            log.info("Registering new DOCTOR account for {}", request.getEmail());
             var doctorRole = roleJpaRepo.findByName("DOCTOR")
                     .orElseThrow(() -> new IllegalArgumentException("Role not found"));
             var doctor = User.builder()

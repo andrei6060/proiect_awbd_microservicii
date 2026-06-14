@@ -12,11 +12,13 @@ import com.clinic.clinic.JpaRepo.UserJpaRepo;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ReviewService {
 
     private final ReviewJpaRepo reviewJpaRepo;
@@ -43,13 +45,14 @@ public class ReviewService {
                 .rating(review.getRating())
             .build();
         reviewJpaRepo.save(reviewEntity);
+        log.info("Persisted review from patient {} for doctor {}", pacient.getId(), doctor.getId());
     }
 
     public List<ReviewDto> getOwnReviews() {
         User pacient = (User) SecurityContextHolder.getContext()
             .getAuthentication()
             .getPrincipal();
-        System.out.println(pacient.getId());
+        log.debug("Fetching own reviews for patient {}", pacient.getId());
         Optional<List<ReviewEntity>> reviewEntities = Optional.ofNullable(
             reviewJpaRepo.findReviewEntityByPatientId(pacient)
         );
@@ -65,7 +68,7 @@ public class ReviewService {
         User doctor = (User) SecurityContextHolder.getContext()
                 .getAuthentication()
                 .getPrincipal();
-        System.out.println(doctor.getId());
+        log.debug("Fetching reviews addressed to doctor {}", doctor.getId());
         Optional<List<ReviewEntity>> reviewEntities = Optional.ofNullable(
                 reviewJpaRepo.findReviewEntityByDoctorId(doctor)
         );
@@ -97,7 +100,9 @@ public class ReviewService {
         );
         if (reviewEntity.isPresent()) {
             reviewJpaRepo.delete(reviewEntity.get());
+            log.info("Deleted review {}", dto.getId());
         } else {
+            log.warn("Cannot delete review {}: not found", dto.getId());
             throw new RuntimeException("Review not found");
         }
     }

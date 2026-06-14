@@ -8,6 +8,8 @@ out/
 
 # Logs
 *.log
+logs/
+**/logs/
 
 # OS
 .DS_Store

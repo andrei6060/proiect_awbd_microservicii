@@ -4,6 +4,7 @@ import jakarta.mail.*;
 import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
@@ -19,6 +20,7 @@ import java.util.Properties;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class EmailService {
     //private final JavaMailSender mailSender;
     private final SpringTemplateEngine templateEngine;
@@ -27,11 +29,8 @@ public class EmailService {
 
     public void sendEmail(String to, String username, String subject, EmailTemplateName templateName,
                           String confirmationurl, String activationCode) throws MessagingException {
-        System.out.println("Sending email to " + to);
-        System.out.println("Username: " + username);
-        System.out.println("Subject: " + subject);
-        System.out.println("ConfirmationURL: " + confirmationurl);
-        System.out.println("ActivationCode: " + activationCode);
+        // Do NOT log the activation code or confirmation URL: they are secrets.
+        log.info("Sending '{}' email to {}", subject, to);
         String template;
         if(templateName == null){
             template = "email_confirmation";

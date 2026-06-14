@@ -4,6 +4,7 @@ import com.clinic.clinic.Entity.Appointment.AcceptAppointmentDto;
 import com.clinic.clinic.Entity.Appointment.AddAppointmentDto;
 import com.clinic.clinic.Entity.Appointment.AppointmentDto;
 import com.clinic.clinic.Entity.Appointment.DeleteAppointmentDto;
+import com.clinic.clinic.Entity.common.PageResponse;
 import com.clinic.clinic.Service.AppointmentService;
 import jakarta.mail.MessagingException;
 import jakarta.validation.Valid;
@@ -51,6 +52,16 @@ public class AppointmentController {
     @PreAuthorize("hasAuthority('DOCTOR')")
     public ResponseEntity<List<AppointmentDto>> getAllAppointments() throws MessagingException {
         return ResponseEntity.ok(appointmentService.getAllAppointments());
+    }
+
+    @GetMapping("/getAllAppointments/page")
+    @PreAuthorize("hasAuthority('DOCTOR')")
+    public ResponseEntity<PageResponse<AppointmentDto>> getAllAppointmentsPaged(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "date") String sortBy,
+            @RequestParam(defaultValue = "asc") String direction) {
+        return ResponseEntity.ok(appointmentService.getAllAppointments(page, size, sortBy, direction));
     }
 
     //verificatx2

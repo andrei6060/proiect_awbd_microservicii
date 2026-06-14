@@ -12,6 +12,7 @@ import com.clinic.clinic.security.JwtService;
 import jakarta.mail.MessagingException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -28,6 +29,7 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AuthenticationService {
 
 
@@ -48,7 +50,7 @@ public class AuthenticationService {
 
     public void register(RegistrationRequestDto request) throws MessagingException {
         if(request.getSpecialization() == null) {
-            System.out.println("user");
+            log.info("Registering new USER account for {}", request.getEmail());
             var user= UserDTO.builder()
                     .firstName(request.getFirstname())
                     .lastName(request.getLastname())
@@ -73,8 +75,8 @@ public class AuthenticationService {
                     Void.class
             );
         } else {
-            System.out.println("doctor");
-            System.out.println(request.getSpecialization());
+            log.info("Registering new DOCTOR account for {} (specialization {})",
+                    request.getEmail(), request.getSpecialization());
             var doctor = UserDTO.builder()
                     .firstName(request.getFirstname())
                     .lastName(request.getLastname())
@@ -98,7 +100,7 @@ public class AuthenticationService {
                     request_api,
                     Void.class
             );
-            System.out.println("plmmm");
+            log.debug("Doctor registration forwarded to db-service for {}", request.getEmail());
 //            userJpaRepo.save(doctor);
 //            sendValidationEmail(doctor);
         }

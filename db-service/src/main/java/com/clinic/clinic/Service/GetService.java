@@ -11,6 +11,7 @@ import com.clinic.clinic.JpaRepo.AppointmentJpaRepo;
 import com.clinic.clinic.JpaRepo.ReviewJpaRepo;
 import com.clinic.clinic.JpaRepo.UserJpaRepo;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -20,6 +21,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class GetService {
     private final AppointmentJpaRepo appointmentJpaRepo;
     private final UserJpaRepo userJpaRepo;
@@ -62,7 +64,7 @@ public class GetService {
 
     public List<ReviewDto> getReviews(Integer id) {
 
-        System.out.println(id);
+        log.debug("Fetching reviews for doctor id {}", id);
 
         User user = userJpaRepo.findById(id).get();
 
@@ -75,7 +77,7 @@ public class GetService {
                 reviews.add(new ReviewDto(reviewEntity));
             }
         }
-        System.out.println(reviews.size());
+        log.debug("Found {} reviews for doctor id {}", reviews.size(), id);
         return reviews;
     }
 
@@ -95,7 +97,7 @@ public class GetService {
 
     public AppointmentBDTO getAppointment(Integer id) {
         AppointmentEntity appointmentEntity = appointmentJpaRepo.findById(id).get();
-        System.out.println(appointmentEntity.getNeededSpecialization());
+        log.debug("Fetching appointment {} (specialization {})", id, appointmentEntity.getNeededSpecialization());
         var appointment =  AppointmentBDTO.builder()
                 .appointmentId(appointmentEntity.getId())
                 .appointmentDate(appointmentEntity.getDate())
@@ -103,7 +105,6 @@ public class GetService {
                 .pacientId(appointmentEntity.getPatientId().getId())
                 .specialization(appointmentEntity.getNeededSpecialization())
                 .build();
-        System.out.println(appointment.getSpecialization());
         return appointment;
     }
 }

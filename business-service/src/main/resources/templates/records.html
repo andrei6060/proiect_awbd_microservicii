@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Clinic · Records Browser</title>
+    <style>
+        :root {
+            --bg: #f4f7fa;
+            --surface: #ffffff;
+            --border: #d9e2ec;
+            --text: #243b53;
+            --muted: #627d98;
+            --accent: #2b6cb0;
+            --accent-dark: #1f4e7a;
+            --row-alt: #f8fafc;
+            --focus: #3182ce;
+            --disabled: #b9c6d3;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.45;
+        }
+
+        header {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 18px 24px;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 1.25rem;
+            font-weight: 600;
+            letter-spacing: 0.2px;
+        }
+
+        header p {
+            margin: 4px 0 0;
+            color: var(--muted);
+            font-size: 0.85rem;
+        }
+
+        main {
+            max-width: 1040px;
+            margin: 0 auto;
+            padding: 24px 16px 48px;
+        }
+
+        .panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 18px 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 2px rgba(36, 59, 83, 0.04);
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 14px 18px;
+            align-items: end;
+        }
+
+        .field { display: flex; flex-direction: column; gap: 5px; }
+
+        label {
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            color: var(--muted);
+            font-weight: 600;
+        }
+
+        select, input[type="text"], input[type="number"], input[type="password"] {
+            font-size: 0.92rem;
+            padding: 8px 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: #fff;
+            color: var(--text);
+            width: 100%;
+        }
+
+        select:focus, input:focus, button:focus-visible {
+            outline: 3px solid rgba(49, 130, 206, 0.35);
+            outline-offset: 1px;
+            border-color: var(--focus);
+        }
+
+        .token-row { margin-bottom: 14px; }
+        .token-row input { font-family: monospace; font-size: 0.82rem; }
+
+        button {
+            font-size: 0.9rem;
+            font-weight: 600;
+            padding: 9px 16px;
+            border: 1px solid var(--accent);
+            background: var(--accent);
+            color: #fff;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+
+        button:hover:not(:disabled) { background: var(--accent-dark); }
+
+        button.secondary {
+            background: #fff;
+            color: var(--accent);
+        }
+        button.secondary:hover:not(:disabled) { background: #eef4fb; }
+
+        button:disabled {
+            background: var(--disabled);
+            border-color: var(--disabled);
+            color: #fff;
+            cursor: not-allowed;
+        }
+
+        .table-wrap { overflow-x: auto; }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            background: #eef3f8;
+            font-size: 0.74rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--muted);
+        }
+
+        tbody tr:nth-child(even) { background: var(--row-alt); }
+
+        .pager {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            margin-top: 16px;
+            flex-wrap: wrap;
+        }
+
+        .counter { color: var(--muted); font-size: 0.85rem; }
+
+        .pager-buttons { display: flex; gap: 10px; }
+
+        .status {
+            font-size: 0.85rem;
+            color: var(--muted);
+            padding: 12px 0;
+        }
+        .status.error { color: #b02a37; }
+
+        .empty { text-align: center; color: var(--muted); padding: 24px; }
+    </style>
+</head>
+<body>
+<header>
+    <h1>Clinic · Records Browser</h1>
+    <p>Paginated, sortable view of medications, appointments and reviews. Requires a valid JWT (DOCTOR role).</p>
+</header>
+
+<main>
+    <div class="panel token-row">
+        <div class="field">
+            <label for="token">Authorization token (JWT)</label>
+            <input type="password" id="token" placeholder="Paste your bearer token here"/>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="controls">
+            <div class="field">
+                <label for="recordSet">Record set</label>
+                <select id="recordSet">
+                    <option value="medications">Medications</option>
+                    <option value="appointments">Appointments</option>
+                    <option value="reviews">Reviews</option>
+                </select>
+            </div>
+            <div class="field">
+                <label for="sortBy">Sort by</label>
+                <select id="sortBy"></select>
+            </div>
+            <div class="field">
+                <label for="direction">Direction</label>
+                <select id="direction">
+                    <option value="asc">Ascending</option>
+                    <option value="desc">Descending</option>
+                </select>
+            </div>
+            <div class="field">
+                <label for="size">Page size</label>
+                <select id="size">
+                    <option value="5">5</option>
+                    <option value="10" selected>10</option>
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                </select>
+            </div>
+            <div class="field">
+                <button id="loadBtn" type="button">Load</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="status" id="status">Choose a record set and press Load.</div>
+        <div class="table-wrap">
+            <table id="table" hidden>
+                <thead><tr id="headRow"></tr></thead>
+                <tbody id="body"></tbody>
+            </table>
+        </div>
+        <div class="pager">
+            <div class="counter" id="counter"></div>
+            <div class="pager-buttons">
+                <button class="secondary" id="prevBtn" type="button" disabled>← Previous</button>
+                <button class="secondary" id="nextBtn" type="button" disabled>Next →</button>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script>
+    const BASE = "/api/v1";
+
+    // Per record-set configuration: endpoint, allowed sort fields, defaults and table columns.
+    const CONFIG = {
+        medications: {
+            endpoint: "/medication/getAllMedications/page",
+            sortFields: [
+                { value: "name", label: "Name" },
+                { value: "quantity", label: "Quantity" }
+            ],
+            defaultSort: "name",
+            defaultDirection: "asc",
+            columns: [
+                { key: "name", label: "Name" },
+                { key: "quantity", label: "Quantity" }
+            ]
+        },
+        appointments: {
+            endpoint: "/appointment/getAllAppointments/page",
+            sortFields: [
+                { value: "date", label: "Date" },
+                { value: "neededSpecialization", label: "Specialization" }
+            ],
+            defaultSort: "date",
+            defaultDirection: "asc",
+            columns: [
+                { key: "appointmentId", label: "ID" },
+                { key: "pacientId", label: "Patient" },
+                { key: "doctorId", label: "Doctor" },
+                { key: "specialization", label: "Specialization" },
+                { key: "appointmentDate", label: "Date" }
+            ]
+        },
+        reviews: {
+            endpoint: "/review/getAllReviews/page",
+            sortFields: [
+                { value: "rating", label: "Rating" },
+                { value: "aspect", label: "Aspect" }
+            ],
+            defaultSort: "rating",
+            defaultDirection: "desc",
+            columns: [
+                { key: "rating", label: "Rating" },
+                { key: "aspect", label: "Aspect" },
+                { key: "patientId", label: "Patient" },
+                { key: "review", label: "Review" }
+            ]
+        }
+    };
+
+    const TOKEN_KEY = "clinic.records.token";
+
+    const el = {
+        token: document.getElementById("token"),
+        recordSet: document.getElementById("recordSet"),
+        sortBy: document.getElementById("sortBy"),
+        direction: document.getElementById("direction"),
+        size: document.getElementById("size"),
+        loadBtn: document.getElementById("loadBtn"),
+        status: document.getElementById("status"),
+        table: document.getElementById("table"),
+        headRow: document.getElementById("headRow"),
+        body: document.getElementById("body"),
+        counter: document.getElementById("counter"),
+        prevBtn: document.getElementById("prevBtn"),
+        nextBtn: document.getElementById("nextBtn")
+    };
+
+    let currentPage = 0;
+
+    // Restore a previously stored token for convenience.
+    const saved = window.localStorage ? localStorage.getItem(TOKEN_KEY) : null;
+    if (saved) { el.token.value = saved; }
+    el.token.addEventListener("change", () => {
+        if (window.localStorage) { localStorage.setItem(TOKEN_KEY, el.token.value.trim()); }
+    });
+
+    function syncSortOptions() {
+        const cfg = CONFIG[el.recordSet.value];
+        el.sortBy.innerHTML = "";
+        cfg.sortFields.forEach(f => {
+            const opt = document.createElement("option");
+            opt.value = f.value;
+            opt.textContent = f.label;
+            el.sortBy.appendChild(opt);
+        });
+        el.sortBy.value = cfg.defaultSort;
+        el.direction.value = cfg.defaultDirection;
+    }
+
+    function setStatus(msg, isError) {
+        el.status.textContent = msg;
+        el.status.className = isError ? "status error" : "status";
+    }
+
+    function renderTable(cfg, data) {
+        el.headRow.innerHTML = "";
+        cfg.columns.forEach(c => {
+            const th = document.createElement("th");
+            th.textContent = c.label;
+            el.headRow.appendChild(th);
+        });
+
+        el.body.innerHTML = "";
+        const rows = data.content || [];
+        if (rows.length === 0) {
+            const tr = document.createElement("tr");
+            const td = document.createElement("td");
+            td.colSpan = cfg.columns.length;
+            td.className = "empty";
+            td.textContent = "No records found.";
+            tr.appendChild(td);
+            el.body.appendChild(tr);
+        } else {
+            rows.forEach(row => {
+                const tr = document.createElement("tr");
+                cfg.columns.forEach(c => {
+                    const td = document.createElement("td");
+                    const v = row[c.key];
+                    td.textContent = (v === null || v === undefined || v === "") ? "—" : v;
+                    tr.appendChild(td);
+                });
+                el.body.appendChild(tr);
+            });
+        }
+        el.table.hidden = false;
+    }
+
+    function renderPager(data) {
+        const total = data.totalElements;
+        if (total === 0) {
+            el.counter.textContent = "Records 0–0 of 0 / page 0 of 0";
+        } else {
+            const start = data.page * data.size + 1;
+            const end = start + data.numberOfElements - 1;
+            el.counter.textContent =
+                "Records " + start + "–" + end + " of " + total +
+                " / page " + (data.page + 1) + " of " + data.totalPages;
+        }
+        el.prevBtn.disabled = data.first;
+        el.nextBtn.disabled = data.last;
+    }
+
+    async function load(page) {
+        const cfg = CONFIG[el.recordSet.value];
+        const token = el.token.value.trim();
+        if (!token) {
+            setStatus("Please paste a JWT token first.", true);
+            return;
+        }
+
+        const params = new URLSearchParams({
+            page: page,
+            size: el.size.value,
+            sortBy: el.sortBy.value,
+            direction: el.direction.value
+        });
+        const url = BASE + cfg.endpoint + "?" + params.toString();
+
+        setStatus("Loading…", false);
+        el.loadBtn.disabled = true;
+        try {
+            const res = await fetch(url, {
+                headers: { "Authorization": "Bearer " + token }
+            });
+            if (res.status === 401 || res.status === 403) {
+                setStatus("Access denied (" + res.status + "). Token may be missing, expired, or lacks the DOCTOR role.", true);
+                return;
+            }
+            if (!res.ok) {
+                setStatus("Request failed with status " + res.status + ".", true);
+                return;
+            }
+            const data = await res.json();
+            currentPage = data.page;
+            renderTable(cfg, data);
+            renderPager(data);
+            setStatus("Sorted by " + data.sortBy + " (" + data.direction + ").", false);
+        } catch (e) {
+            setStatus("Network error: " + e.message, true);
+        } finally {
+            el.loadBtn.disabled = false;
+        }
+    }
+
+    el.recordSet.addEventListener("change", () => {
+        syncSortOptions();
+        el.table.hidden = true;
+        el.counter.textContent = "";
+        el.prevBtn.disabled = true;
+        el.nextBtn.disabled = true;
+        setStatus("Press Load to fetch " + el.recordSet.value + ".", false);
+    });
+    el.loadBtn.addEventListener("click", () => load(0));
+    el.prevBtn.addEventListener("click", () => { if (currentPage > 0) load(currentPage - 1); });
+    el.nextBtn.addEventListener("click", () => load(currentPage + 1));
+
+    syncSortOptions();
+</script>
+</body>
+</html>

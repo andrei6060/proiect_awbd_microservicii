@@ -2,6 +2,7 @@ package com.clinic.clinic.Controller;
 
 
 import com.clinic.clinic.Entity.Medication.*;
+import com.clinic.clinic.Entity.common.PageResponse;
 import com.clinic.clinic.Service.MedicationService;
 import com.clinic.clinic.Entity.Review.ReviewDto;
 import jakarta.mail.MessagingException;
@@ -77,6 +78,16 @@ public class MedicationController {
     @PreAuthorize("hasAuthority('DOCTOR')")
     public ResponseEntity<?> getAllActiveMedicine(){
         return ResponseEntity.ok(medicationService.getAllActiveMedicine());
+    }
+
+    @GetMapping("/getAllMedications/page")
+    @PreAuthorize("hasAuthority('DOCTOR')")
+    public ResponseEntity<PageResponse<MedicineResponseDto>> getAllMedicationsPaged(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "name") String sortBy,
+            @RequestParam(defaultValue = "asc") String direction) {
+        return ResponseEntity.ok(medicationService.getAllMedications(page, size, sortBy, direction));
     }
 
 

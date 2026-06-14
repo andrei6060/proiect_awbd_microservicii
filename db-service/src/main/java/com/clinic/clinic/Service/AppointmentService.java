@@ -8,6 +8,7 @@ import com.clinic.clinic.global.AppointmentNotMatchingException;
 import com.clinic.clinic.Entity.User.User;
 import com.clinic.clinic.JpaRepo.UserJpaRepo;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
@@ -16,6 +17,7 @@ import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AppointmentService {
 
     private final AppointmentJpaRepo appointmentJpaRepo;
@@ -29,6 +31,8 @@ public class AppointmentService {
                 .patientId(user)
                 .build();
         appointmentJpaRepo.save(appointment);
+        log.info("Persisted appointment for patient {} (specialization {})",
+                user.getId(), appointment.getNeededSpecialization());
     }
 
     public void acceptAppointment(AcceptAppointmentDto appointmentId) {
@@ -42,6 +46,8 @@ public class AppointmentService {
                 if(appointment.getNeededSpecialization().equals(specialization)) {
                     appointment.setDoctorId(doctor);
                     appointmentJpaRepo.save(appointment);
+                    log.info("Appointment {} assigned to doctor {}",
+                            appointmentId.getAppointmentId(), doctor.getId());
                 } else {
                     throw new AppointmentNotMatchingException(appointmentId.getAppointmentId(), specialization);
                 }
@@ -70,7 +76,7 @@ public class AppointmentService {
                 appointments.add(new AppointmentDto(appointmentEntity));
             }
         }
-        System.out.println(appointments.size());
+        log.debug("Found {} available appointments for specialization {}", appointments.size(), specialization);
         return appointments;
     }
 
@@ -111,5 +117,6 @@ public class AppointmentService {
                 () -> new AppointmentNotFound(dto.getAppointmentId())
         );
         appointmentJpaRepo.deleteById(dto.getAppointmentId());
+        log.info("Deleted appointment {}", dto.getAppointmentId());
     }
 }

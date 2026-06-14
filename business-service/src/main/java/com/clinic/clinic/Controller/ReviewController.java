@@ -3,6 +3,7 @@ package com.clinic.clinic.Controller;
 import com.clinic.clinic.Entity.Review.AddReviewDto;
 import com.clinic.clinic.Entity.Review.DeleteReviewDto;
 import com.clinic.clinic.Entity.Review.ReviewDto;
+import com.clinic.clinic.Entity.common.PageResponse;
 import com.clinic.clinic.Service.ReviewService;
 import jakarta.mail.MessagingException;
 import jakarta.validation.Valid;
@@ -46,6 +47,16 @@ public class ReviewController {
     @PreAuthorize("hasAnyAuthority('DOCTOR')")
     public ResponseEntity<List<ReviewDto>> getAllReviews() throws MessagingException {
         return ResponseEntity.ok(reviewService.getAllReviews());
+    }
+
+    @GetMapping("/getAllReviews/page")
+    @PreAuthorize("hasAnyAuthority('DOCTOR')")
+    public ResponseEntity<PageResponse<ReviewDto>> getAllReviewsPaged(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "rating") String sortBy,
+            @RequestParam(defaultValue = "desc") String direction) {
+        return ResponseEntity.ok(reviewService.getAllReviews(page, size, sortBy, direction));
     }
 
 
