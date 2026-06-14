@@ -18,5 +18,8 @@ public class ExceptionResponse {
     private String error;
     private Set<String> validationErrors;
     private Map<String, String> validationErrorDetails;
+    private int status;
+    private String path;
+    private String timestamp;
 
 }

@@ -1,4 +1,6 @@
 spring:
+  application:
+    name: db-service
   profiles:
     active: dev
   servlet:
@@ -11,3 +13,12 @@ springdoc:
 server:
   servlet:
     context-path: /api/v1/
+
+# Service discovery: registers this service with Eureka. defaultZone is overridable
+# via the EUREKA_URL env var for containerized deployments.
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: true
