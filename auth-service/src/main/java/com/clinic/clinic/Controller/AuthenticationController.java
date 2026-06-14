@@ -11,7 +11,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.*;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
 
@@ -21,7 +20,6 @@ import java.util.List;
 @Tag(name = "authentication")
 public class AuthenticationController {
     private final AuthenticationService authenticationService;
-    private final RestTemplate restTemplate = new RestTemplate();
 
     //DONE
     @PostMapping("/register")

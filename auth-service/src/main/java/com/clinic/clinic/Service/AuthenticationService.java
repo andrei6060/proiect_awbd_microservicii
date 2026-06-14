@@ -66,7 +66,7 @@ public class AuthenticationService {
 
             HttpEntity<UserDTO> request_api = new HttpEntity<>(user, headers);
 
-            String url = "http://localhost:8086/api/v1/save/user";
+            String url = "http://db-service/api/v1/save/user";
 
             ResponseEntity<Void> response = restTemplate.exchange(
                     url,
@@ -92,7 +92,7 @@ public class AuthenticationService {
 
             HttpEntity<UserDTO> request_api = new HttpEntity<>(doctor, headers);
 
-            String url = "http://localhost:8086/api/v1/save/user";
+            String url = "http://db-service/api/v1/save/user";
 
             ResponseEntity<Void> response = restTemplate.exchange(
                     url,
@@ -223,7 +223,7 @@ public class AuthenticationService {
 
         HttpEntity<UserDTO> request_api = new HttpEntity<>(userDTO, headers);
 
-        String url = "http://localhost:8086/api/v1/save/userConfirm";
+        String url = "http://db-service/api/v1/save/userConfirm";
 
         ResponseEntity<Void> response = restTemplate.exchange(
                 url,
@@ -246,7 +246,7 @@ public class AuthenticationService {
 
         HttpEntity<TokenDTO> request_api_token = new HttpEntity<>(tokenDto, headers);
 
-        String url_token = "http://localhost:8086/api/v1/save/token";
+        String url_token = "http://db-service/api/v1/save/token";
 
         ResponseEntity<Void> response_token = restTemplate.exchange(
                 url_token,

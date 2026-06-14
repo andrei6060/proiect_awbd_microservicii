@@ -59,7 +59,7 @@ public class ReviewService {
 
         log.info("Submitting review from patient {} for doctor {}", pacient.getId(), review.getDoctorId());
 
-        String url_token = "http://localhost:8086/api/v1/save/review";
+        String url_token = "http://db-service/api/v1/save/review";
 
         ResponseEntity<Void> response_token = restTemplate.exchange(
                 url_token,
@@ -79,7 +79,7 @@ public class ReviewService {
 
         HttpEntity<Integer> request_api_token = new HttpEntity<>(pacient.getId(), headersToken);
 
-        String url = "http://localhost:8086/api/v1/get/reviews?id=" + pacient.getId();
+        String url = "http://db-service/api/v1/get/reviews?id=" + pacient.getId();
         ResponseEntity<ReviewDto[]> response = restTemplate.exchange(
                 url,
                 HttpMethod.GET,

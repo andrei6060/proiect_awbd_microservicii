@@ -13,6 +13,7 @@ import org.springframework.security.config.annotation.authentication.configurati
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.cloud.client.loadbalancer.LoadBalanced;
 import org.springframework.web.client.RestTemplate;
 
 @Configuration
@@ -22,7 +23,11 @@ public class BeansConfig {
     public Jackson2ObjectMapperBuilderCustomizer jsonCustomizer() {
         return builder -> builder.modules(new JavaTimeModule());
     }
+
+    // @LoadBalanced lets this RestTemplate resolve Eureka service names (e.g.
+    // http://db-service/...) and load-balance across that service's instances.
     @Bean
+    @LoadBalanced
     public RestTemplate restTemplate() {
         return new RestTemplate();
     }

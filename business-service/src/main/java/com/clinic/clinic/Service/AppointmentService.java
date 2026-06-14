@@ -67,7 +67,7 @@ public class AppointmentService {
 
         HttpEntity<AppointmentBDTO> request_api_token = new HttpEntity<>(appointmentBDTO, headersToken);
 
-        String url_token = "http://localhost:8086/api/v1/save/appointment";
+        String url_token = "http://db-service/api/v1/save/appointment";
 
         ResponseEntity<Void> response_token = restTemplate.exchange(
                 url_token,
@@ -78,7 +78,7 @@ public class AppointmentService {
     }
 
     public void acceptAppointment(AcceptAppointmentDto appointmentId) {
-        String urlAppointment = "http://localhost:8086/api/v1/get/appointment?id=" + appointmentId.getAppointmentId();
+        String urlAppointment = "http://db-service/api/v1/get/appointment?id=" + appointmentId.getAppointmentId();
 
         ResponseEntity<AppointmentBDTO> responseAppointment = restTemplate.exchange(
                 urlAppointment,
@@ -90,7 +90,7 @@ public class AppointmentService {
         AppointmentBDTO appointment = responseAppointment.getBody();
 
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        String url = "http://localhost:8086/api/v1/get/user?email=" + email;
+        String url = "http://db-service/api/v1/get/user?email=" + email;
 
         ResponseEntity<UserDTO> response = restTemplate.exchange(
                 url,
@@ -119,7 +119,7 @@ public class AppointmentService {
 
                     HttpEntity<AppointmentBDTO> request_api_token = new HttpEntity<>(appointmentBDTO, headersToken);
 
-                    String url_token = "http://localhost:8086/api/v1/save/appointment";
+                    String url_token = "http://db-service/api/v1/save/appointment";
 
                     ResponseEntity<Void> response_token = restTemplate.exchange(
                             url_token,
@@ -163,7 +163,7 @@ public class AppointmentService {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         String specialization = String.valueOf(userJpaRepo.findByEmail(email).get().getSpecialization());
 
-        String url = "http://localhost:8086/api/v1/get/availableAppointments?specialization=" + specialization;
+        String url = "http://db-service/api/v1/get/availableAppointments?specialization=" + specialization;
 
         ResponseEntity<AppointmentDto[]> response = restTemplate.exchange(
                 url,
@@ -180,7 +180,7 @@ public class AppointmentService {
     public List<AppointmentDto> getMyAppointments() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
 
-        String url = "http://localhost:8086/api/v1/get/myAppointments?email=" + email;
+        String url = "http://db-service/api/v1/get/myAppointments?email=" + email;
 
         ResponseEntity<AppointmentDto[]> response = restTemplate.exchange(
                 url,
@@ -195,7 +195,7 @@ public class AppointmentService {
     }
     public List<AppointmentDto> getOwnAppointments() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        String url = "http://localhost:8086/api/v1/get/ownAppointments?email=" + email;
+        String url = "http://db-service/api/v1/get/ownAppointments?email=" + email;
         ResponseEntity<AppointmentDto[]> response = restTemplate.exchange(
                 url,
                 HttpMethod.GET,
@@ -211,7 +211,7 @@ public class AppointmentService {
         headersToken.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<Integer> request_api_token = new HttpEntity<>(appointmentId.getAppointmentId(), headersToken);
 
-        String url_token = "http://localhost:8086/api/v1/delete/doctorFromAppointment?appointmentId=" + appointmentId.getAppointmentId();
+        String url_token = "http://db-service/api/v1/delete/doctorFromAppointment?appointmentId=" + appointmentId.getAppointmentId();
 
         ResponseEntity<Void> response_token = restTemplate.exchange(
                 url_token,
@@ -227,7 +227,7 @@ public class AppointmentService {
 
         HttpEntity<Integer> request_api_token = new HttpEntity<>(dto.getAppointmentId(), headersToken);
 
-        String url = "http://localhost:8086/api/v1/delete/appointment?appointmentId=" + dto.getAppointmentId();
+        String url = "http://db-service/api/v1/delete/appointment?appointmentId=" + dto.getAppointmentId();
 
 
 
