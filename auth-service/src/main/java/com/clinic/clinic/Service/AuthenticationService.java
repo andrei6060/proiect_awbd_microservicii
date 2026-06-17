@@ -9,6 +9,8 @@ import com.clinic.clinic.JpaRepo.TokenJpaRepo;
 import com.clinic.clinic.role.Role;
 import com.clinic.clinic.role.RoleJpaRepo;
 import com.clinic.clinic.security.JwtService;
+import com.clinic.clinic.global.RemoteServiceUnavailableException;
+import com.clinic.clinic.resilience.DbServiceClient;
 import jakarta.mail.MessagingException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -46,6 +48,7 @@ public class AuthenticationService {
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
     private final RestTemplate restTemplate;
+    private final DbServiceClient dbServiceClient;
 
 
     public void register(RegistrationRequestDto request) throws MessagingException {
@@ -68,11 +71,10 @@ public class AuthenticationService {
 
             String url = "http://db-service/api/v1/save/user";
 
-            ResponseEntity<Void> response = restTemplate.exchange(
-                    url,
-                    HttpMethod.POST,
-                    request_api,
-                    Void.class
+            // Write op during registration: if db-service is down, surface a clean 503.
+            dbServiceClient.call(
+                    () -> restTemplate.exchange(url, HttpMethod.POST, request_api, Void.class),
+                    throwable -> { throw new RemoteServiceUnavailableException("db-service", throwable); }
             );
         } else {
             log.info("Registering new DOCTOR account for {} (specialization {})",
@@ -94,11 +96,9 @@ public class AuthenticationService {
 
             String url = "http://db-service/api/v1/save/user";
 
-            ResponseEntity<Void> response = restTemplate.exchange(
-                    url,
-                    HttpMethod.POST,
-                    request_api,
-                    Void.class
+            dbServiceClient.call(
+                    () -> restTemplate.exchange(url, HttpMethod.POST, request_api, Void.class),
+                    throwable -> { throw new RemoteServiceUnavailableException("db-service", throwable); }
             );
             log.debug("Doctor registration forwarded to db-service for {}", request.getEmail());
 //            userJpaRepo.save(doctor);
@@ -225,11 +225,9 @@ public class AuthenticationService {
 
         String url = "http://db-service/api/v1/save/userConfirm";
 
-        ResponseEntity<Void> response = restTemplate.exchange(
-                url,
-                HttpMethod.POST,
-                request_api,
-                Void.class
+        dbServiceClient.call(
+                () -> restTemplate.exchange(url, HttpMethod.POST, request_api, Void.class),
+                throwable -> { throw new RemoteServiceUnavailableException("db-service", throwable); }
         );
 //        userJpaRepo.save(user);
         savedToken.setValidatedAt(LocalDateTime.now());
@@ -248,11 +246,9 @@ public class AuthenticationService {
 
         String url_token = "http://db-service/api/v1/save/token";
 
-        ResponseEntity<Void> response_token = restTemplate.exchange(
-                url_token,
-                HttpMethod.POST,
-                request_api_token,
-                Void.class
+        dbServiceClient.call(
+                () -> restTemplate.exchange(url_token, HttpMethod.POST, request_api_token, Void.class),
+                throwable -> { throw new RemoteServiceUnavailableException("db-service", throwable); }
         );
 
 //        tokenJpaRepo.save(savedToken);

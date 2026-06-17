@@ -14,6 +14,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
 
@@ -40,6 +42,7 @@ public class MedicationService {
     private int maxPageSize;
 
 
+    @CacheEvict(cacheNames = {"medicationsActive", "medicationsAvailable", "medicationByName"}, allEntries = true)
     public void addNewMedication(@Valid AddMedicationDto addMedicationDto) {
         var medicationEntity = MedicationEntity.builder()
                 .name(addMedicationDto.getName())
@@ -52,6 +55,7 @@ public class MedicationService {
                 addMedicationDto.getName(), addMedicationDto.getQuantity());
     }
 
+    @CacheEvict(cacheNames = {"medicationsActive", "medicationsAvailable", "medicationByName"}, allEntries = true)
     public void supplyMedication(SupplyMedicationDto dto) {
         MedicationEntity medication = medicationJpaRepo.findByName(dto.getMedicationName())
                 .orElseThrow(() -> new MedicationNotFoundException(dto.getMedicationName()));
@@ -73,6 +77,7 @@ public class MedicationService {
 //    }
 
 
+    @CacheEvict(cacheNames = {"medicationsActive", "medicationsAvailable", "medicationByName"}, allEntries = true)
     public void discontinueMedication(DiscontinueMedicationDto discontinueMedicationDto) {
         MedicationEntity medication = medicationJpaRepo.findByName(discontinueMedicationDto.getName())
                 .orElseThrow(() -> new MedicationNotFoundException(discontinueMedicationDto.getName()));
@@ -97,6 +102,7 @@ public class MedicationService {
 //                }
 //    }
 
+    @CacheEvict(cacheNames = {"medicationsActive", "medicationsAvailable", "medicationByName"}, allEntries = true)
     public void reactivateMedication(DiscontinueMedicationDto discontinueMedicationDto) {
         MedicationEntity medication = medicationJpaRepo.findByName(discontinueMedicationDto.getName())
                 .orElseThrow(() -> new MedicationNotFoundException(discontinueMedicationDto.getName()));
@@ -118,6 +124,7 @@ public class MedicationService {
 //        }
 //    }
 
+    @CacheEvict(cacheNames = {"medicationsActive", "medicationsAvailable", "medicationByName"}, allEntries = true)
     public void giveMedication(GiveMedicationDto giveMedicationDto) {
         User user = userJpaRepo.findById(giveMedicationDto.getIdPatient()).orElseThrow(
                 () -> new PatientNotFoundException(giveMedicationDto.getIdPatient())
@@ -167,6 +174,7 @@ public class MedicationService {
         return PageResponse.from(entityPage, content, query.sortBy(), query.direction());
     }
 
+    @Cacheable(cacheNames = "medicationsActive", key = "'all'")
     public List<MedicineResponseDto> getAllActiveMedicine() {
         List<MedicationEntity> medicationEntities = medicationJpaRepo.findAllByActiveIsTrue();
         List<MedicineResponseDto> medicineResponseDtos = new java.util.ArrayList<>(List.of());
@@ -177,6 +185,7 @@ public class MedicationService {
         return medicineResponseDtos;
     }
 
+    @Cacheable(cacheNames = "medicationsAvailable", key = "'all'")
     public List<MedicineResponseDto> getAllAvailableMedicine() {
         List<MedicationEntity> medicationEntities = medicationJpaRepo.findAllByQuantityGreaterThan();
         List<MedicineResponseDto> medicineResponseDtos = new java.util.ArrayList<>(List.of());
@@ -187,6 +196,7 @@ public class MedicationService {
         return medicineResponseDtos;
     }
 
+    @Cacheable(cacheNames = "medicationByName", key = "#getMedicineDto.name")
     public MedicineResponseDto getMedicine(@Valid GetMedicineDto getMedicineDto) {
         MedicationEntity medication = medicationJpaRepo.findByName(getMedicineDto.getName()).orElseThrow(
                 () -> new MedicationNotFoundException(getMedicineDto.getName())

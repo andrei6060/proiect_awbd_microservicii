@@ -1,0 +1,3 @@
+# Per-service overrides for auth-service (override the shared application.yml).
+app:
+  message: "Hello from Config Server - auth-service"

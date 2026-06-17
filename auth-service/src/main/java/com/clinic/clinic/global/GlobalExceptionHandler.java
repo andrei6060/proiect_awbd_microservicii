@@ -41,6 +41,20 @@ public class GlobalExceptionHandler {
             .timestamp(OffsetDateTime.now().toString());
     }
 
+    @ExceptionHandler(RemoteServiceUnavailableException.class)
+    public ResponseEntity<ExceptionResponse> handleRemoteUnavailable(
+        RemoteServiceUnavailableException ex,
+        HttpServletRequest request
+    ) {
+        // Raised by a circuit-breaker fallback when a downstream service is down.
+        log.warn("Downstream service unavailable on {}: {}", request.getRequestURI(), ex.getMessage());
+        return ResponseEntity.status(SERVICE_UNAVAILABLE).body(
+            base(SERVICE_UNAVAILABLE, request)
+                .errorMessage("A required service is temporarily unavailable. Please try again later.")
+                .build()
+        );
+    }
+
     @ExceptionHandler(LockedException.class)
     public ResponseEntity<ExceptionResponse> handleException(
         LockedException lockedException,

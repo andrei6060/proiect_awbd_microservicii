@@ -3,6 +3,10 @@ spring:
     name: db-service
   profiles:
     active: dev
+  # Centralized config (modern Spring Boot 3 mechanism, NOT bootstrap.yml).
+  # 'optional:' lets the service start even if the config server is down.
+  config:
+    import: "optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}"
   servlet:
     multipart:
       max-file-size: 50MB
@@ -14,11 +18,29 @@ server:
   servlet:
     context-path: /api/v1/
 
-# Service discovery: registers this service with Eureka. defaultZone is overridable
-# via the EUREKA_URL env var for containerized deployments.
-eureka:
-  client:
-    service-url:
-      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
-  instance:
-    prefer-ip-address: true
+# Expose the refresh endpoint so centralized properties can be re-read at runtime.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics, prometheus, refresh
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true            # /actuator/health/liveness and /readiness
+  metrics:
+    tags:
+      application: ${spring.application.name}   # label every metric with the service name
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true              # enables latency histograms/percentiles
+  # Distributed tracing (bonus). Apps still start if Zipkin is down.
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: ${ZIPKIN_URL:http://localhost:9411/api/v2/spans}
+
+# NOTE: eureka.* now comes from the Config Server (config-repo/application.yml).

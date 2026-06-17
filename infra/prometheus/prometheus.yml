@@ -1,0 +1,36 @@
+global:
+  scrape_interval: 10s
+  evaluation_interval: 10s
+
+scrape_configs:
+  # --- Business services: actuator lives UNDER the /api/v1 context path ---
+  - job_name: 'business-service'
+    metrics_path: /api/v1/actuator/prometheus
+    static_configs:
+      - targets: ['host.docker.internal:8085']
+
+  - job_name: 'auth-service'
+    metrics_path: /api/v1/actuator/prometheus
+    static_configs:
+      - targets: ['host.docker.internal:8087']
+
+  - job_name: 'db-service'
+    metrics_path: /api/v1/actuator/prometheus
+    static_configs:
+      - targets: ['host.docker.internal:8086']
+
+  # --- Infra apps: NO context path, actuator is at the root ---
+  - job_name: 'api-gateway'
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['host.docker.internal:8080']
+
+  - job_name: 'config-server'
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['host.docker.internal:8888']
+
+  - job_name: 'eureka-server'
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['host.docker.internal:8761']

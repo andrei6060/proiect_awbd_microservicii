@@ -1,0 +1,44 @@
+server:
+  port: 8888
+
+spring:
+  application:
+    name: config-server
+  # 'native' activates the filesystem backend (NativeEnvironmentRepository).
+  profiles:
+    active: native
+  cloud:
+    config:
+      server:
+        native:
+          # Files are read fresh on every request, which makes the live-refresh
+          # demo reliable. Path is relative to the process working directory, so
+          # run the server from the config-server module folder.
+          search-locations: file:./config-repo
+        # To switch to a Git backend later: remove 'native' from spring.profiles.active
+        # and configure instead:
+        # git:
+        #   uri: https://github.com/<your-org>/clinic-config-repo
+        #   default-label: main
+
+# Register with Eureka so the config server is discoverable. Overridable via env var.
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics, prometheus
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}

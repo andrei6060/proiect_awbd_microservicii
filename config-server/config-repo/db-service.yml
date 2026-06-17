@@ -1,0 +1,3 @@
+# Per-service overrides for db-service (override the shared application.yml).
+app:
+  message: "Hello from Config Server - db-service"

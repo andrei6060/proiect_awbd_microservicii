@@ -1,0 +1,124 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  # Redis connection for the distributed RequestRateLimiter (host/port overridable).
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+  cloud:
+    gateway:
+      # Distributed (Redis-backed) rate limiter applied to every route. Token-bucket
+      # state lives in Redis (shared across gateway instances). Demo-friendly values:
+      # 5 tokens/sec, burst 10 -> burst >10 requests within a second to see HTTP 429.
+      default-filters:
+        - name: RequestRateLimiter
+          args:
+            redis-rate-limiter.replenishRate: 5
+            redis-rate-limiter.burstCapacity: 10
+            redis-rate-limiter.requestedTokens: 1
+            key-resolver: "#{@ipKeyResolver}"
+      # Fallback dynamic routes by service id (e.g. /business-service/**). The explicit
+      # routes below are the primary, intended entry points and keep the /api/v1 path.
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+      # Explicit routes. Full path (including /api/v1) is preserved - no StripPrefix -
+      # because the services are mapped under the /api/v1 context path.
+      routes:
+        - id: auth-service
+          uri: lb://auth-service
+          predicates:
+            - Path=/api/v1/auth/**
+
+        - id: business-appointment
+          uri: lb://business-service
+          predicates:
+            - Path=/api/v1/appointment/**
+        - id: business-medication
+          uri: lb://business-service
+          predicates:
+            - Path=/api/v1/medication/**
+        - id: business-review
+          uri: lb://business-service
+          predicates:
+            - Path=/api/v1/review/**
+        - id: business-file
+          uri: lb://business-service
+          predicates:
+            - Path=/api/v1/file/**
+        - id: business-ui
+          uri: lb://business-service
+          predicates:
+            - Path=/api/v1/ui/**
+
+        - id: db-get
+          uri: lb://db-service
+          predicates:
+            - Path=/api/v1/get/**
+        - id: db-save
+          uri: lb://db-service
+          predicates:
+            - Path=/api/v1/save/**
+        - id: db-delete
+          uri: lb://db-service
+          predicates:
+            - Path=/api/v1/delete/**
+
+      # Reactive gateway CORS (NOT servlet WebMvc CORS) for the Angular frontend.
+      globalcors:
+        add-to-simple-url-handler-mapping: true
+        cors-configurations:
+          '[/**]':
+            allowedOrigins: "http://localhost:4200"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - PATCH
+              - OPTIONS
+            allowedHeaders: "*"
+            allowCredentials: true
+            maxAge: 3600
+
+# Rate limiting is now the Redis-backed Spring Cloud Gateway RequestRateLimiter
+# (see spring.cloud.gateway.default-filters above + GatewayRateLimiterConfig).
+# The old in-memory RateLimitingGlobalFilter is retained but disabled (no @Component)
+# for easy revert if the Redis limiter proves unstable.
+
+# Service discovery: register the gateway with Eureka. Overridable via EUREKA_URL.
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics, prometheus, gateway
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+  # Distributed tracing (bonus). Apps still start if Zipkin is down.
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: ${ZIPKIN_URL:http://localhost:9411/api/v2/spans}

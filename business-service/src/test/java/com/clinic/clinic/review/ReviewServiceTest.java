@@ -9,6 +9,7 @@ import com.clinic.clinic.Entity.User.User;
 import com.clinic.clinic.JpaRepo.ReviewJpaRepo;
 import com.clinic.clinic.JpaRepo.UserJpaRepo;
 import com.clinic.clinic.Service.ReviewService;
+import com.clinic.clinic.resilience.DbServiceClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
@@ -32,12 +33,15 @@ class ReviewServiceTest {
     @Mock
     private RestTemplate userJpaRepo;
 
+    @Mock
+    private DbServiceClient dbServiceClient;
+
     private ReviewService reviewService;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        reviewService = new ReviewService(reviewJpaRepo, userJpaRepo);
+        reviewService = new ReviewService(reviewJpaRepo, userJpaRepo, dbServiceClient);
         SecurityContextHolder.clearContext();
     }
 

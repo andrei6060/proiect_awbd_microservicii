@@ -7,8 +7,10 @@ import com.clinic.clinic.Entity.User.User;
 import com.clinic.clinic.Entity.common.PageResponse;
 import com.clinic.clinic.Entity.common.PaginationUtil;
 import com.clinic.clinic.JpaRepo.ReviewJpaRepo;
+import com.clinic.clinic.global.RemoteServiceUnavailableException;
 import com.clinic.clinic.global.UserIsNotDoctor;
 import com.clinic.clinic.JpaRepo.UserJpaRepo;
+import com.clinic.clinic.resilience.DbServiceClient;
 
 import java.util.Arrays;
 import java.util.List;
@@ -33,6 +35,7 @@ public class ReviewService {
 
     private final ReviewJpaRepo reviewJpaRepo;
     private final RestTemplate restTemplate;
+    private final DbServiceClient dbServiceClient;
 
     @Value("${application.pagination.default-page-size:10}")
     private int defaultPageSize;
@@ -61,11 +64,10 @@ public class ReviewService {
 
         String url_token = "http://db-service/api/v1/save/review";
 
-        ResponseEntity<Void> response_token = restTemplate.exchange(
-                url_token,
-                HttpMethod.POST,
-                request_api_token,
-                Void.class
+        // Write op: on db-service failure raise a clean 503 domain error.
+        dbServiceClient.call(
+                () -> restTemplate.exchange(url_token, HttpMethod.POST, request_api_token, Void.class),
+                throwable -> { throw new RemoteServiceUnavailableException("db-service", throwable); }
         );
     }
 
@@ -80,18 +82,14 @@ public class ReviewService {
         HttpEntity<Integer> request_api_token = new HttpEntity<>(pacient.getId(), headersToken);
 
         String url = "http://db-service/api/v1/get/reviews?id=" + pacient.getId();
-        ResponseEntity<ReviewDto[]> response = restTemplate.exchange(
-                url,
-                HttpMethod.GET,
-                null,
-                ReviewDto[].class
+        // Read list: degrade gracefully to an empty list (never fabricate data).
+        return dbServiceClient.call(
+                () -> Arrays.asList(restTemplate.exchange(url, HttpMethod.GET, null, ReviewDto[].class).getBody()),
+                throwable -> {
+                    log.warn("db-service unavailable for getOwnReviews; returning empty list ({})", throwable.toString());
+                    return List.of();
+                }
         );
-        List<ReviewDto> reviews = Arrays.asList(response.getBody());
-        return reviews;
-
-
-
-
     }
     public List<ReviewDto> getOwnReviewsDoctor() {
         User doctor = (User) SecurityContextHolder.getContext()
