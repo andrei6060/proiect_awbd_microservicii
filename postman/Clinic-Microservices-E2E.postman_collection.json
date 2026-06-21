@@ -1,0 +1,670 @@
+{
+  "info": {
+    "_postman_id": "c1a9f0e2-7b3d-4f10-9a21-clinic000e2e",
+    "name": "Clinic Microservices E2E",
+    "description": "Generated from the actual @RestController + @RequestBody DTOs of auth-service and business-service (the endpoints the API gateway routes to). All requests go through the gateway via {{baseUrl}} = http://localhost:8080/api/v1.\n\nFlow: run Auth > 'Authenticate Doctor' and 'Authenticate User' first; their test scripts store the JWT in {{doctorToken}} / {{userToken}}. Protected requests send Bearer {{doctorToken}} or {{userToken}} according to the endpoint's @PreAuthorize role.\n\nSome happy-path writes depend on existing data (DB-generated ids are not returned by the API): acceptAppointment / deleteAppointment / notGoodDoctor use {{appointmentId}}, deleteReview uses {{reviewId}}, give/file use {{patientId}}/{{doctorId}}. Set those variables to real ids, or expect the documented non-200 in those cases. The Error Cases folder is fully deterministic.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register Doctor (POST /auth/register)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 202 Accepted', function () { pm.response.to.have.status(202); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstname\": \"Greg\",\n  \"lastname\": \"House\",\n  \"email\": \"{{doctorEmail}}\",\n  \"password\": \"{{doctorPassword}}\",\n  \"specialization\": \"CARDIOLOGIE\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/auth/register", "host": [ "{{baseUrl}}" ], "path": [ "auth", "register" ] },
+            "description": "RegistrationRequestDto { firstname, lastname, email, password(>=10), specialization?: ORL|GINECOLOGIE|CARDIOLOGIE|ORTOPEDIE|ONCOLOGIE|PEDIATRIE }. With specialization -> DOCTOR account. Public."
+          }
+        },
+        {
+          "name": "Register User/Patient (POST /auth/register)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 202 Accepted', function () { pm.response.to.have.status(202); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstname\": \"John\",\n  \"lastname\": \"Doe\",\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"{{userPassword}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/auth/register", "host": [ "{{baseUrl}}" ], "path": [ "auth", "register" ] },
+            "description": "No specialization -> USER (patient) account. Public."
+          }
+        },
+        {
+          "name": "Activate Account (GET /auth/activateUser)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Requires the real 6-digit code emailed to MailDev (http://localhost:1080).",
+                  "// Paste it into the {{activationToken}} variable. A wrong/expired code returns 500.",
+                  "pm.test('Status is 200 (valid code)', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/activateUser?token={{activationToken}}",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "auth", "activateUser" ],
+              "query": [ { "key": "token", "value": "{{activationToken}}" } ]
+            },
+            "description": "Activates the account with the emailed code. Public."
+          }
+        },
+        {
+          "name": "Authenticate Doctor (POST /auth/authenticate)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "var body = pm.response.json();",
+                  "pm.test('JWT token returned', function () { pm.expect(body.token).to.be.a('string'); });",
+                  "pm.environment.set('doctorToken', body.token);",
+                  "pm.collectionVariables.set('doctorToken', body.token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{doctorEmail}}\",\n  \"password\": \"{{doctorPassword}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/auth/authenticate", "host": [ "{{baseUrl}}" ], "path": [ "auth", "authenticate" ] },
+            "description": "AuthenticationRequestDto { email, password }. Saves response.token to {{doctorToken}}. Account must be activated first."
+          }
+        },
+        {
+          "name": "Authenticate User (POST /auth/authenticate)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "var body = pm.response.json();",
+                  "pm.test('JWT token returned', function () { pm.expect(body.token).to.be.a('string'); });",
+                  "pm.environment.set('userToken', body.token);",
+                  "pm.collectionVariables.set('userToken', body.token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"{{userPassword}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/auth/authenticate", "host": [ "{{baseUrl}}" ], "path": [ "auth", "authenticate" ] },
+            "description": "Saves response.token to {{userToken}}."
+          }
+        },
+        {
+          "name": "Delete User (DELETE /auth/deleteUser) [DOCTOR]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// 200 when the user id exists; deleting a non-existent id returns 500.",
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{doctorToken}}", "type": "string" } ] },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/deleteUser?token={{deleteUserId}}",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "auth", "deleteUser" ],
+              "query": [ { "key": "token", "value": "{{deleteUserId}}" } ]
+            },
+            "description": "Query param 'token' is the Integer user id to delete. @PreAuthorize DOCTOR."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Appointments",
+      "item": [
+        {
+          "name": "Add Appointment (POST /appointment/addAppointment) [USER]",
+          "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [ "pm.test('Status is 200', function () { pm.response.to.have.status(200); });" ] } } ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{userToken}}", "type": "string" } ] },
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"date\": \"2026-07-01T10:00:00\",\n  \"neededSpecialization\": \"CARDIOLOGIE\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/appointment/addAppointment", "host": [ "{{baseUrl}}" ], "path": [ "appointment", "addAppointment" ] },
+            "description": "AddAppointmentDto { date: ISO LocalDateTime, neededSpecialization: Specializations }. Patient books an appointment."
+          }
+        },
+        {
+          "name": "Accept Appointment (PUT /appointment/acceptAppointment) [DOCTOR]",
+          "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [ "// 200 when the appointmentId exists & matches the doctor's specialization; the controller maps RuntimeException to 400.", "pm.test('Status is 200', function () { pm.response.to.have.status(200); });" ] } } ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{doctorToken}}", "type": "string" } ] },
+            "method": "PUT",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"appointmentId\": {{appointmentId}}\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/appointment/acceptAppointment", "host": [ "{{baseUrl}}" ], "path": [ "appointment", "acceptAppointment" ] },
+            "description": "AcceptAppointmentDto { appointmentId: Integer }."
+          }
+        },
+        {
+          "name": "Get All Appointments (GET /appointment/getAllAppointments) [DOCTOR]",
+          "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [ "pm.test('Status is 200', function () { pm.response.to.have.status(200); });" ] } } ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{doctorToken}}", "type": "string" } ] },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/appointment/getAllAppointments", "host": [ "{{baseUrl}}" ], "path": [ "appointment", "getAllAppointments" ] }
+          }
+        },
+        {
+          "name": "Get Available Appointments (GET /appointment/getAvailableAppointments) [DOCTOR]",
+          "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [ "pm.test('Status is 200', function () { pm.response.to.have.status(200); });" ] } } ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{doctorToken}}", "type": "string" } ] },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/appointment/getAvailableAppointments", "host": [ "{{baseUrl}}" ], "path": [ "appointment", "getAvailableAppointments" ] }
+          }
+        },
+        {
+          "name": "Get Own Appointments (GET /appointment/getOwnAppointments) [DOCTOR]",
+          "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [ "pm.test('Status is 200', function () { pm.response.to.have.status(200); });" ] } } ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{doctorToken}}", "type": "string" } ] },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/appointment/getOwnAppointments", "host": [ "{{baseUrl}}" ], "path": [ "appointment", "getOwnAppointments" ] }
+          }
+        },
+        {
+          "name": "Get My Appointments (GET /appointment/getMyAppointments) [USER]",
+          "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [ "pm.test('Status is 200', function () { pm.response.to.have.status(200); });" ] } } ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{userToken}}", "type": "string" } ] },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/appointment/getMyAppointments", "host": [ "{{baseUrl}}" ], "path": [ "appointment", "getMyAppointments" ] }
+          }
+        },
+        {
+          "name": "Remove Doctor From Appointment (DELETE /appointment/notGoodDoctor) [DOCTOR/USER]",
+          "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [ "pm.test('Status is 200', function () { pm.response.to.have.status(200); });" ] } } ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{doctorToken}}", "type": "string" } ] },
+            "method": "DELETE",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"appointmentId\": {{appointmentId}}\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/appointment/notGoodDoctor", "host": [ "{{baseUrl}}" ], "path": [ "appointment", "notGoodDoctor" ] },
+            "description": "DeleteAppointmentDto { appointmentId: Integer }. @PreAuthorize hasAnyAuthority(DOCTOR, USER)."
+          }
+        },
+        {
+          "name": "Delete Appointment (DELETE /appointment/deleteAppointment) [DOCTOR/USER]",
+          "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [ "pm.test('Status is 200', function () { pm.response.to.have.status(200); });" ] } } ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{doctorToken}}", "type": "string" } ] },
+            "method": "DELETE",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"appointmentId\": {{appointmentId}}\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/appointment/deleteAppointment", "host": [ "{{baseUrl}}" ], "path": [ "appointment", "deleteAppointment" ] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Medications",
+      "item": [
+        {
+          "name": "Add New Medication (POST /medication/addNewMedication) [DOCTOR]",
+          "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [ "pm.test('Status is 200', function () { pm.response.to.have.status(200); });" ] } } ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{doctorToken}}", "type": "string" } ] },
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Paracetamol\",\n  \"description\": \"Pain relief\",\n  \"quantity\": 100\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/medication/addNewMedication", "host": [ "{{baseUrl}}" ], "path": [ "medication", "addNewMedication" ] },
+            "description": "AddMedicationDto { name, description, quantity: Integer }."
+          }
+        },
+        {
+          "name": "Supply Medication (PUT /medication/supplyMedication) [DOCTOR]",
+          "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [ "pm.test('Status is 200', function () { pm.response.to.have.status(200); });" ] } } ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{doctorToken}}", "type": "string" } ] },
+            "method": "PUT",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"medicationName\": \"Paracetamol\",\n  \"quantity\": 50\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/medication/supplyMedication", "host": [ "{{baseUrl}}" ], "path": [ "medication", "supplyMedication" ] },
+            "description": "SupplyMedicationDto { medicationName, quantity: Integer }."
+          }
+        },
+        {
+          "name": "Discontinue Medication (DELETE /medication/discontinueMedication) [DOCTOR]",
+          "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [ "pm.test('Status is 200', function () { pm.response.to.have.status(200); });" ] } } ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{doctorToken}}", "type": "string" } ] },
+            "method": "DELETE",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Paracetamol\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/medication/discontinueMedication", "host": [ "{{baseUrl}}" ], "path": [ "medication", "discontinueMedication" ] },
+            "description": "DiscontinueMedicationDto { name }."
+          }
+        },
+        {
+          "name": "Reactivate Medication (PUT /medication/reactivateMedication) [DOCTOR]",
+          "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [ "pm.test('Status is 200', function () { pm.response.to.have.status(200); });" ] } } ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{doctorToken}}", "type": "string" } ] },
+            "method": "PUT",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Paracetamol\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/medication/reactivateMedication", "host": [ "{{baseUrl}}" ], "path": [ "medication", "reactivateMedication" ] },
+            "description": "DiscontinueMedicationDto { name } (reused). Reactivates a discontinued medication."
+          }
+        },
+        {
+          "name": "Give Medication (PUT /medication/giveMedication) [DOCTOR]",
+          "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [ "pm.test('Status is 200', function () { pm.response.to.have.status(200); });" ] } } ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{doctorToken}}", "type": "string" } ] },
+            "method": "PUT",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"idPatient\": {{patientId}},\n  \"medicationName\": \"Paracetamol\",\n  \"quantity\": 2\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/medication/giveMedication", "host": [ "{{baseUrl}}" ], "path": [ "medication", "giveMedication" ] },
+            "description": "GiveMedicationDto { idPatient: Integer, medicationName, quantity: Integer }. Requires a patient file."
+          }
+        },
+        {
+          "name": "Get Medicine (GET /medication/getMedicine) [DOCTOR]",
+          "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [ "pm.test('Status is 200', function () { pm.response.to.have.status(200); });" ] } } ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{doctorToken}}", "type": "string" } ] },
+            "method": "GET",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Paracetamol\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/medication/getMedicine", "host": [ "{{baseUrl}}" ], "path": [ "medication", "getMedicine" ] },
+            "description": "GetMedicineDto { name }. NOTE: this is a GET with a JSON request body (as defined by the controller)."
+          }
+        },
+        {
+          "name": "Get All Available Medicine (GET /medication/getAllAvailableMedicine) [DOCTOR]",
+          "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [ "pm.test('Status is 200', function () { pm.response.to.have.status(200); });" ] } } ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{doctorToken}}", "type": "string" } ] },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/medication/getAllAvailableMedicine", "host": [ "{{baseUrl}}" ], "path": [ "medication", "getAllAvailableMedicine" ] }
+          }
+        },
+        {
+          "name": "Get All Active Medicine (GET /medication/getAllActiveMedicine) [DOCTOR]",
+          "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [ "pm.test('Status is 200', function () { pm.response.to.have.status(200); });" ] } } ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{doctorToken}}", "type": "string" } ] },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/medication/getAllActiveMedicine", "host": [ "{{baseUrl}}" ], "path": [ "medication", "getAllActiveMedicine" ] },
+            "description": "Cached in Redis (cache 'medicationsActive')."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reviews",
+      "item": [
+        {
+          "name": "Add Review (POST /review/addReview) [USER]",
+          "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [ "pm.test('Status is 200', function () { pm.response.to.have.status(200); });" ] } } ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{userToken}}", "type": "string" } ] },
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"doctorId\": {{doctorId}},\n  \"review\": \"Very attentive and clear\",\n  \"anonymousReview\": false,\n  \"rating\": 5,\n  \"aspect\": \"kindness\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/review/addReview", "host": [ "{{baseUrl}}" ], "path": [ "review", "addReview" ] },
+            "description": "AddReviewDto { doctorId: Integer, review, anonymousReview: Boolean, rating: Integer?, aspect: String? }."
+          }
+        },
+        {
+          "name": "Get Own Reviews (GET /review/getOwnReviews) [USER]",
+          "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [ "pm.test('Status is 200', function () { pm.response.to.have.status(200); });" ] } } ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{userToken}}", "type": "string" } ] },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/review/getOwnReviews", "host": [ "{{baseUrl}}" ], "path": [ "review", "getOwnReviews" ] }
+          }
+        },
+        {
+          "name": "Get Own Reviews Doctor (GET /review/getOwnReviewsDoctor) [DOCTOR]",
+          "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [ "pm.test('Status is 200', function () { pm.response.to.have.status(200); });" ] } } ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{doctorToken}}", "type": "string" } ] },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/review/getOwnReviewsDoctor", "host": [ "{{baseUrl}}" ], "path": [ "review", "getOwnReviewsDoctor" ] }
+          }
+        },
+        {
+          "name": "Get All Reviews (GET /review/getAllReviews) [DOCTOR]",
+          "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [ "pm.test('Status is 200', function () { pm.response.to.have.status(200); });" ] } } ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{doctorToken}}", "type": "string" } ] },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/review/getAllReviews", "host": [ "{{baseUrl}}" ], "path": [ "review", "getAllReviews" ] }
+          }
+        },
+        {
+          "name": "Delete Review (DELETE /review/deleteReview) [USER]",
+          "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [ "// 200 when the review id exists; a missing id returns 500 (RuntimeException 'Review not found').", "pm.test('Status is 200', function () { pm.response.to.have.status(200); });" ] } } ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{userToken}}", "type": "string" } ] },
+            "method": "DELETE",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"id\": {{reviewId}}\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/review/deleteReview", "host": [ "{{baseUrl}}" ], "path": [ "review", "deleteReview" ] },
+            "description": "DeleteReviewDto { id: Long }."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Files",
+      "item": [
+        {
+          "name": "Add New File (POST /file/addNewFile) [DOCTOR]",
+          "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [ "pm.test('Status is 200', function () { pm.response.to.have.status(200); });" ] } } ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{doctorToken}}", "type": "string" } ] },
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"patientId\": {{patientId}},\n  \"bloodType\": \"A_POSITIVE\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/file/addNewFile", "host": [ "{{baseUrl}}" ], "path": [ "file", "addNewFile" ] },
+            "description": "AddFileDto { patientId: Integer, bloodType?: A_POSITIVE|A_NEGATIVE|B_POSITIVE|B_NEGATIVE|O_POSITIVE|O_NEGATIVE|AB_POSITIVE|AB_NEGATIVE|unknown }."
+          }
+        },
+        {
+          "name": "Get Patient File (GET /file/getPatientFile) [DOCTOR]",
+          "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [ "pm.test('Status is 200', function () { pm.response.to.have.status(200); });" ] } } ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{doctorToken}}", "type": "string" } ] },
+            "method": "GET",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"patientId\": {{patientId}}\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/file/getPatientFile", "host": [ "{{baseUrl}}" ], "path": [ "file", "getPatientFile" ] },
+            "description": "GetFileDto { patientId: Integer }. GET with a JSON body (as defined by the controller)."
+          }
+        },
+        {
+          "name": "Get Own File (GET /file/getOwnFile) [USER]",
+          "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [ "pm.test('Status is 200', function () { pm.response.to.have.status(200); });" ] } } ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{userToken}}", "type": "string" } ] },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/file/getOwnFile", "host": [ "{{baseUrl}}" ], "path": [ "file", "getOwnFile" ] }
+          }
+        },
+        {
+          "name": "Get All Files (GET /file/getAllFiles) [DOCTOR]",
+          "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [ "pm.test('Status is 200', function () { pm.response.to.have.status(200); });" ] } } ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{doctorToken}}", "type": "string" } ] },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/file/getAllFiles", "host": [ "{{baseUrl}}" ], "path": [ "file", "getAllFiles" ] }
+          }
+        },
+        {
+          "name": "Add Blood Type (PUT /file/addBloodType) [DOCTOR]",
+          "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [ "pm.test('Status is 200', function () { pm.response.to.have.status(200); });" ] } } ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{doctorToken}}", "type": "string" } ] },
+            "method": "PUT",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"patientId\": {{patientId}},\n  \"bloodType\": \"O_NEGATIVE\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/file/addBloodType", "host": [ "{{baseUrl}}" ], "path": [ "file", "addBloodType" ] },
+            "description": "AddBloodDto { patientId: Integer, bloodType: BloodType }."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Pagination",
+      "item": [
+        {
+          "name": "Medications Page (GET /medication/getAllMedications/page) [DOCTOR]",
+          "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+            "var body = pm.response.json();",
+            "pm.test('PageResponse metadata present', function () {",
+            "  pm.expect(body).to.have.property('totalElements');",
+            "  pm.expect(body).to.have.property('totalPages');",
+            "  pm.expect(body).to.have.property('content');",
+            "  pm.expect(body.content).to.be.an('array');",
+            "  pm.expect(body.size).to.eql(2);",
+            "  pm.expect(body.page).to.eql(0);",
+            "  pm.expect(body.sortBy).to.eql('name');",
+            "  pm.expect(body.direction).to.eql('asc');",
+            "});"
+          ] } } ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{doctorToken}}", "type": "string" } ] },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/medication/getAllMedications/page?page=0&size=2&sortBy=name&direction=asc",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "medication", "getAllMedications", "page" ],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "2" },
+                { "key": "sortBy", "value": "name" },
+                { "key": "direction", "value": "asc" }
+              ]
+            },
+            "description": "Sort fields: name | quantity. Returns PageResponse<MedicineResponseDto>."
+          }
+        },
+        {
+          "name": "Appointments Page (GET /appointment/getAllAppointments/page) [DOCTOR]",
+          "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+            "var body = pm.response.json();",
+            "pm.test('PageResponse metadata present', function () {",
+            "  pm.expect(body).to.have.property('totalElements');",
+            "  pm.expect(body).to.have.property('content');",
+            "  pm.expect(body.content).to.be.an('array');",
+            "  pm.expect(body.sortBy).to.eql('date');",
+            "});"
+          ] } } ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{doctorToken}}", "type": "string" } ] },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/appointment/getAllAppointments/page?page=0&size=5&sortBy=date&direction=asc",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "appointment", "getAllAppointments", "page" ],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "5" },
+                { "key": "sortBy", "value": "date" },
+                { "key": "direction", "value": "asc" }
+              ]
+            },
+            "description": "Sort fields: date | neededSpecialization."
+          }
+        },
+        {
+          "name": "Reviews Page (GET /review/getAllReviews/page) [DOCTOR]",
+          "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+            "var body = pm.response.json();",
+            "pm.test('PageResponse metadata present', function () {",
+            "  pm.expect(body).to.have.property('totalElements');",
+            "  pm.expect(body).to.have.property('content');",
+            "  pm.expect(body.content).to.be.an('array');",
+            "  pm.expect(body.sortBy).to.eql('rating');",
+            "  pm.expect(body.direction).to.eql('desc');",
+            "});"
+          ] } } ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{doctorToken}}", "type": "string" } ] },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/review/getAllReviews/page?page=0&size=5&sortBy=rating&direction=desc",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "review", "getAllReviews", "page" ],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "5" },
+                { "key": "sortBy", "value": "rating" },
+                { "key": "direction", "value": "desc" }
+              ]
+            },
+            "description": "Sort fields: rating | aspect."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Error Cases",
+      "item": [
+        {
+          "name": "401 Unauthorized (no token)",
+          "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status is 401', function () { pm.response.to.have.status(401); });",
+            "pm.test('JSON error body', function () { pm.expect(pm.response.json().status).to.eql(401); });"
+          ] } } ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/medication/getAllActiveMedicine", "host": [ "{{baseUrl}}" ], "path": [ "medication", "getAllActiveMedicine" ] },
+            "description": "DOCTOR endpoint called with NO Authorization header -> 401 from RestAuthenticationEntryPoint."
+          }
+        },
+        {
+          "name": "403 Forbidden (USER on DOCTOR endpoint)",
+          "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status is 403', function () { pm.response.to.have.status(403); });",
+            "pm.test('JSON error body', function () { pm.expect(pm.response.json().status).to.eql(403); });"
+          ] } } ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{userToken}}", "type": "string" } ] },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/medication/getAllActiveMedicine", "host": [ "{{baseUrl}}" ], "path": [ "medication", "getAllActiveMedicine" ] },
+            "description": "DOCTOR-only endpoint called with a USER token -> 403 (@PreAuthorize denies)."
+          }
+        },
+        {
+          "name": "404 Not Found (medication by name)",
+          "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status is 404', function () { pm.response.to.have.status(404); });",
+            "pm.test('ExceptionResponse shape', function () { var b = pm.response.json(); pm.expect(b.status).to.eql(404); pm.expect(b).to.have.property('path'); pm.expect(b).to.have.property('timestamp'); });"
+          ] } } ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{doctorToken}}", "type": "string" } ] },
+            "method": "GET",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"__DOES_NOT_EXIST__\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/medication/getMedicine", "host": [ "{{baseUrl}}" ], "path": [ "medication", "getMedicine" ] },
+            "description": "Unknown medication -> MedicationNotFoundException -> 404 with the standard ExceptionResponse JSON."
+          }
+        },
+        {
+          "name": "400 Validation (bad register body)",
+          "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status is 400', function () { pm.response.to.have.status(400); });",
+            "pm.test('validation errors present', function () { var b = pm.response.json(); pm.expect(b.status).to.eql(400); pm.expect(b).to.have.property('validationErrors'); });"
+          ] } } ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"firstname\": \"\",\n  \"lastname\": \"\",\n  \"email\": \"not-an-email\",\n  \"password\": \"123\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/auth/register", "host": [ "{{baseUrl}}" ], "path": [ "auth", "register" ] },
+            "description": "Blank firstname/lastname, malformed email, password < 10 chars -> MethodArgumentNotValidException -> 400."
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080/api/v1", "type": "string" },
+    { "key": "doctorToken", "value": "", "type": "string" },
+    { "key": "userToken", "value": "", "type": "string" },
+    { "key": "doctorEmail", "value": "doc@clinic.com", "type": "string" },
+    { "key": "doctorPassword", "value": "password123", "type": "string" },
+    { "key": "userEmail", "value": "patient@clinic.com", "type": "string" },
+    { "key": "userPassword", "value": "password123", "type": "string" },
+    { "key": "activationToken", "value": "000000", "type": "string" },
+    { "key": "deleteUserId", "value": "999", "type": "string" },
+    { "key": "patientId", "value": "1", "type": "string" },
+    { "key": "doctorId", "value": "2", "type": "string" },
+    { "key": "appointmentId", "value": "1", "type": "string" },
+    { "key": "reviewId", "value": "1", "type": "string" }
+  ]
+}
