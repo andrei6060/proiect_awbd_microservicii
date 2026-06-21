@@ -11,6 +11,8 @@ import com.clinic.clinic.global.AppointmentNotFound;
 import com.clinic.clinic.global.AppointmentNotMatchingException;
 import com.clinic.clinic.Entity.User.User;
 import com.clinic.clinic.JpaRepo.UserJpaRepo;
+import com.clinic.clinic.global.RemoteServiceUnavailableException;
+import com.clinic.clinic.resilience.DbServiceClient;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +40,7 @@ public class AppointmentService {
     private final AppointmentJpaRepo appointmentJpaRepo;
     private final UserJpaRepo userJpaRepo;
     private final RestTemplate restTemplate;
+    private final DbServiceClient dbServiceClient;
     private final HttpServletRequest request;
 
     @Value("${application.pagination.default-page-size:10}")
@@ -67,39 +70,31 @@ public class AppointmentService {
 
         HttpEntity<AppointmentBDTO> request_api_token = new HttpEntity<>(appointmentBDTO, headersToken);
 
-        String url_token = "http://localhost:8086/api/v1/save/appointment";
+        String url_token = "http://db-service/api/v1/save/appointment";
 
-        ResponseEntity<Void> response_token = restTemplate.exchange(
-                url_token,
-                HttpMethod.POST,
-                request_api_token,
-                Void.class
+        // Write op: cannot fabricate success -> on failure raise a clean 503 domain error.
+        dbServiceClient.call(
+                () -> restTemplate.exchange(url_token, HttpMethod.POST, request_api_token, Void.class),
+                throwable -> { throw new RemoteServiceUnavailableException("db-service", throwable); }
         );
     }
 
     public void acceptAppointment(AcceptAppointmentDto appointmentId) {
-        String urlAppointment = "http://localhost:8086/api/v1/get/appointment?id=" + appointmentId.getAppointmentId();
+        String urlAppointment = "http://db-service/api/v1/get/appointment?id=" + appointmentId.getAppointmentId();
 
-        ResponseEntity<AppointmentBDTO> responseAppointment = restTemplate.exchange(
-                urlAppointment,
-                HttpMethod.GET,
-                null,
-                AppointmentBDTO.class
+        // Read needed to proceed: if db-service is down we cannot accept -> 503.
+        AppointmentBDTO appointment = dbServiceClient.call(
+                () -> restTemplate.exchange(urlAppointment, HttpMethod.GET, null, AppointmentBDTO.class).getBody(),
+                throwable -> { throw new RemoteServiceUnavailableException("db-service", throwable); }
         );
-
-        AppointmentBDTO appointment = responseAppointment.getBody();
 
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        String url = "http://localhost:8086/api/v1/get/user?email=" + email;
+        String url = "http://db-service/api/v1/get/user?email=" + email;
 
-        ResponseEntity<UserDTO> response = restTemplate.exchange(
-                url,
-                HttpMethod.GET,
-                null,
-                UserDTO.class
+        UserDTO doctor = dbServiceClient.call(
+                () -> restTemplate.exchange(url, HttpMethod.GET, null, UserDTO.class).getBody(),
+                throwable -> { throw new RemoteServiceUnavailableException("db-service", throwable); }
         );
-
-        UserDTO doctor = response.getBody();
 
         String specialization = String.valueOf(doctor.getSpecialization());
         log.debug("Doctor {} (specialization {}) accepting appointment {}",
@@ -119,13 +114,11 @@ public class AppointmentService {
 
                     HttpEntity<AppointmentBDTO> request_api_token = new HttpEntity<>(appointmentBDTO, headersToken);
 
-                    String url_token = "http://localhost:8086/api/v1/save/appointment";
+                    String url_token = "http://db-service/api/v1/save/appointment";
 
-                    ResponseEntity<Void> response_token = restTemplate.exchange(
-                            url_token,
-                            HttpMethod.POST,
-                            request_api_token,
-                            Void.class
+                    dbServiceClient.call(
+                            () -> restTemplate.exchange(url_token, HttpMethod.POST, request_api_token, Void.class),
+                            throwable -> { throw new RemoteServiceUnavailableException("db-service", throwable); }
                     );
                     log.info("Appointment {} accepted by doctor {}",
                             appointmentId.getAppointmentId(), doctor.getId());
@@ -163,61 +156,52 @@ public class AppointmentService {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         String specialization = String.valueOf(userJpaRepo.findByEmail(email).get().getSpecialization());
 
-        String url = "http://localhost:8086/api/v1/get/availableAppointments?specialization=" + specialization;
+        String url = "http://db-service/api/v1/get/availableAppointments?specialization=" + specialization;
 
-        ResponseEntity<AppointmentDto[]> response = restTemplate.exchange(
-                url,
-                HttpMethod.GET,
-                null,
-                AppointmentDto[].class
+        // Read list: degrade gracefully to an empty list (never fabricate data).
+        return dbServiceClient.call(
+                () -> Arrays.asList(restTemplate.exchange(url, HttpMethod.GET, null, AppointmentDto[].class).getBody()),
+                throwable -> {
+                    log.warn("db-service unavailable for getAvailableAppointments; returning empty list ({})", throwable.toString());
+                    return List.of();
+                }
         );
-
-        List<AppointmentDto> appointments = Arrays.asList(response.getBody());
-        return appointments;
-
     }
 
     public List<AppointmentDto> getMyAppointments() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
 
-        String url = "http://localhost:8086/api/v1/get/myAppointments?email=" + email;
+        String url = "http://db-service/api/v1/get/myAppointments?email=" + email;
 
-        ResponseEntity<AppointmentDto[]> response = restTemplate.exchange(
-                url,
-                HttpMethod.GET,
-                null,
-                AppointmentDto[].class
+        return dbServiceClient.call(
+                () -> Arrays.asList(restTemplate.exchange(url, HttpMethod.GET, null, AppointmentDto[].class).getBody()),
+                throwable -> {
+                    log.warn("db-service unavailable for getMyAppointments; returning empty list ({})", throwable.toString());
+                    return List.of();
+                }
         );
-
-        List<AppointmentDto> appointments = Arrays.asList(response.getBody());
-        return appointments;
-
     }
     public List<AppointmentDto> getOwnAppointments() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        String url = "http://localhost:8086/api/v1/get/ownAppointments?email=" + email;
-        ResponseEntity<AppointmentDto[]> response = restTemplate.exchange(
-                url,
-                HttpMethod.GET,
-                null,
-                AppointmentDto[].class
+        String url = "http://db-service/api/v1/get/ownAppointments?email=" + email;
+        return dbServiceClient.call(
+                () -> Arrays.asList(restTemplate.exchange(url, HttpMethod.GET, null, AppointmentDto[].class).getBody()),
+                throwable -> {
+                    log.warn("db-service unavailable for getOwnAppointments; returning empty list ({})", throwable.toString());
+                    return List.of();
+                }
         );
-        List<AppointmentDto> appointments = Arrays.asList(response.getBody());
-        return appointments;
-
     }
     public void deleteDoctorFromAppointment(DeleteAppointmentDto appointmentId) {
         HttpHeaders headersToken = new HttpHeaders();
         headersToken.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<Integer> request_api_token = new HttpEntity<>(appointmentId.getAppointmentId(), headersToken);
 
-        String url_token = "http://localhost:8086/api/v1/delete/doctorFromAppointment?appointmentId=" + appointmentId.getAppointmentId();
+        String url_token = "http://db-service/api/v1/delete/doctorFromAppointment?appointmentId=" + appointmentId.getAppointmentId();
 
-        ResponseEntity<Void> response_token = restTemplate.exchange(
-                url_token,
-                HttpMethod.PUT,
-                request_api_token,
-                Void.class
+        dbServiceClient.call(
+                () -> restTemplate.exchange(url_token, HttpMethod.PUT, request_api_token, Void.class),
+                throwable -> { throw new RemoteServiceUnavailableException("db-service", throwable); }
         );
     }
 
@@ -227,15 +211,11 @@ public class AppointmentService {
 
         HttpEntity<Integer> request_api_token = new HttpEntity<>(dto.getAppointmentId(), headersToken);
 
-        String url = "http://localhost:8086/api/v1/delete/appointment?appointmentId=" + dto.getAppointmentId();
+        String url = "http://db-service/api/v1/delete/appointment?appointmentId=" + dto.getAppointmentId();
 
-
-
-        ResponseEntity<Void> response = restTemplate.exchange(
-                url,
-                HttpMethod.DELETE,
-                null,
-                    Void.class
+        dbServiceClient.call(
+                () -> restTemplate.exchange(url, HttpMethod.DELETE, null, Void.class),
+                throwable -> { throw new RemoteServiceUnavailableException("db-service", throwable); }
         );
     }
 }

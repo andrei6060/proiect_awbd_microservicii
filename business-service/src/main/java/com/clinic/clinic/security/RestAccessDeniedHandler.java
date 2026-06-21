@@ -1,0 +1,45 @@
+package com.clinic.clinic.security;
+
+import com.clinic.clinic.global.ExceptionResponse;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.web.access.AccessDeniedHandler;
+import org.springframework.stereotype.Component;
+
+import java.io.IOException;
+import java.time.OffsetDateTime;
+
+/**
+ * Writes a JSON {@link ExceptionResponse} with HTTP 403 for authenticated but
+ * insufficiently-authorized requests (role denial) instead of an empty body, so
+ * the Angular SPA can read the status and render its own page. CORS headers are
+ * added earlier in the chain by Spring Security's CORS filter.
+ */
+@Component
+@RequiredArgsConstructor
+public class RestAccessDeniedHandler implements AccessDeniedHandler {
+
+    private final ObjectMapper objectMapper;
+
+    @Override
+    public void handle(
+        HttpServletRequest request,
+        HttpServletResponse response,
+        AccessDeniedException accessDeniedException
+    ) throws IOException {
+        response.setStatus(HttpStatus.FORBIDDEN.value());
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        ExceptionResponse body = ExceptionResponse.builder()
+            .status(HttpStatus.FORBIDDEN.value())
+            .errorMessage("Access denied")
+            .path(request.getRequestURI())
+            .timestamp(OffsetDateTime.now().toString())
+            .build();
+        objectMapper.writeValue(response.getWriter(), body);
+    }
+}

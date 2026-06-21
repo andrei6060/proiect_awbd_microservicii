@@ -1,0 +1,62 @@
+# Monitoring stack for the clinic microservices.
+# The Spring Boot apps run on the host (Windows); these containers reach them via
+# host.docker.internal (NOT localhost). Run from this folder:  docker compose up -d
+services:
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: clinic-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+    extra_hosts:
+      # Lets the container resolve host.docker.internal on Linux too (no-op on Docker Desktop).
+      - "host.docker.internal:host-gateway"
+    networks:
+      - monitoring
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: clinic-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - monitoring
+
+  # BONUS: distributed tracing collector/UI. Apps send spans to localhost:9411 (host).
+  zipkin:
+    image: openzipkin/zipkin:latest
+    container_name: clinic-zipkin
+    ports:
+      - "9411:9411"
+    networks:
+      - monitoring
+
+  # Redis: caching layer for business-service AND the gateway's distributed rate limiter.
+  # (NoSQL key-value store.) Apps on the host reach it at localhost:6379.
+  redis:
+    image: redis:7-alpine
+    container_name: clinic-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - monitoring
+
+networks:
+  monitoring:
+    driver: bridge
+
+volumes:
+  grafana-data:

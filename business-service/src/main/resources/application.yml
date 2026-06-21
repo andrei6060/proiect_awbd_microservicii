@@ -1,10 +1,20 @@
 spring:
+  application:
+    name: business-service
   profiles:
     active: dev
+  # Centralized config (modern Spring Boot 3 mechanism, NOT bootstrap.yml).
+  # 'optional:' lets the service start even if the config server is down.
+  config:
+    import: "optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}"
   servlet:
     multipart:
       max-file-size: 50MB
   data:
+    # Redis connection (Spring Boot 3 -> spring.data.redis.*). Host/port overridable.
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
     web:
       pageable:
         default-page-size: 10
@@ -18,7 +28,69 @@ server:
   servlet:
     context-path: /api/v1/
 
-application:
-  pagination:
-    default-page-size: 10
-    max-page-size: 50
+# Cache TTLs (minutes). Configurable so they can be tuned per environment.
+app:
+  cache:
+    default-ttl-minutes: ${CACHE_DEFAULT_TTL_MINUTES:10}   # by-id lookups
+    list-ttl-minutes: ${CACHE_LIST_TTL_MINUTES:2}          # list caches (shorter)
+
+# Expose the refresh endpoint so centralized properties can be re-read at runtime.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics, prometheus, refresh
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true            # /actuator/health/liveness and /readiness
+  health:
+    circuitbreakers:
+      enabled: true              # surfaces circuit breaker state in /actuator/health
+  metrics:
+    tags:
+      application: ${spring.application.name}   # label every metric with the service name
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true              # enables latency histograms/percentiles
+  # Distributed tracing (bonus). Apps still start if Zipkin is down.
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: ${ZIPKIN_URL:http://localhost:9411/api/v2/spans}
+
+# NOTE: eureka.* and application.pagination.* now come from the Config Server
+# (config-repo/application.yml). app.message / app.features.* are centralized too.
+
+# Fault tolerance for inter-service calls to db-service. Kept LOCAL (not in the
+# config server) so resilience behavior is available even if config-server is down.
+# These instances are registered eagerly and shared by the Spring Cloud
+# CircuitBreakerFactory, the actuator health indicator, and the Micrometer metrics.
+resilience4j:
+  circuitbreaker:
+    instances:
+      db-service:
+        register-health-indicator: true
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        minimum-number-of-calls: 5          # evaluate failure rate after 5 calls (trips quickly for demo)
+        failure-rate-threshold: 50          # open when >=50% of calls fail
+        wait-duration-in-open-state: 10s     # stay OPEN 10s, then HALF_OPEN
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+  retry:
+    instances:
+      db-service:
+        max-attempts: 3                      # 1 initial + 2 retries
+        wait-duration: 300ms
+        retry-exceptions:
+          - org.springframework.web.client.ResourceAccessException   # connect/read timeout, conn refused
+          - org.springframework.web.client.HttpServerErrorException   # 5xx from db-service
+  timelimiter:
+    instances:
+      db-service:
+        timeout-duration: 12s                # coarse backstop; real timeout is the RestTemplate readTimeout (3s/attempt)
+        cancel-running-future: true

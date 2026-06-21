@@ -1,0 +1,12 @@
+apiVersion: 1
+
+providers:
+  - name: 'clinic-dashboards'
+    orgId: 1
+    folder: 'Clinic'
+    type: file
+    disableDeletion: false
+    allowUiUpdates: true
+    options:
+      # Grafana loads every *.json dashboard found here on startup.
+      path: /etc/grafana/provisioning/dashboards

@@ -24,3 +24,11 @@ spring:
   sql:
     init:
       mode: never
+  cloud:
+    config:
+      enabled: false
+
+# Eureka registration is disabled during tests so the suite stays self-contained.
+eureka:
+  client:
+    enabled: false

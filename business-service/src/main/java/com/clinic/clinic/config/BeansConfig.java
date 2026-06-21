@@ -13,7 +13,11 @@ import org.springframework.security.config.annotation.authentication.configurati
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.cloud.client.loadbalancer.LoadBalanced;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestTemplate;
+
+import java.time.Duration;
 
 @Configuration
 public class BeansConfig {
@@ -22,9 +26,20 @@ public class BeansConfig {
     public Jackson2ObjectMapperBuilderCustomizer jsonCustomizer() {
         return builder -> builder.modules(new JavaTimeModule());
     }
+
+    // @LoadBalanced lets this RestTemplate resolve Eureka service names (e.g.
+    // http://db-service/...) and load-balance across that service's instances.
+    // Connect/read timeouts are the PRIMARY (per-attempt) timeout for inter-service
+    // calls: a hanging db-service fails after readTimeout instead of blocking the
+    // caller, and that failure feeds the retry + circuit breaker. The Resilience4j
+    // time-limiter (resilience4j.timelimiter.db-service in yaml) is a coarse backstop.
     @Bean
+    @LoadBalanced
     public RestTemplate restTemplate() {
-        return new RestTemplate();
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(Duration.ofSeconds(2));
+        factory.setReadTimeout(Duration.ofSeconds(3));
+        return new RestTemplate(factory);
     }
 
     private final UserDetailsService userDetailsService;

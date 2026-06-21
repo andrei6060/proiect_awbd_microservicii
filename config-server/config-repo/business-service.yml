@@ -1,0 +1,5 @@
+# Per-service overrides for business-service (override the shared application.yml).
+app:
+  message: "Hello from Config Server - business-service"
+  features:
+    beta-enabled: true
